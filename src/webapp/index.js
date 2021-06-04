@@ -1,6 +1,7 @@
 const h = require('h')
 const fetch = require('cross-fetch');
-const EthQuery = require('eth-query')
+const EthQuery = require('eth-query');
+const { json } = require('body-parser');
 
 var state = {
   isLoading: true,
@@ -143,8 +144,8 @@ function renderApp () {
   // render faucet ui
   render([
 
-    h('nav.navbar.navbar-default', [
-      h('h1.container-fluid', 'MetaMask Ether Faucet')
+    h('nav.navbar.navbar-default.container', [
+      h('h1.container-fluid', 'MetaMask Aitd Faucet')
     ]),
 
     h('section.container', [
@@ -156,12 +157,12 @@ function renderApp () {
         h('div.panel-body', [
           h('div', 'address: ' + state.faucetAddress),
           h('div', 'balance: ' + formatBalance(state.faucetBalance)),
-          h('button.btn.btn-success', 'request 100 ether from faucet', {
+          h('button.btn.btn-success', 'request 100 aitd from faucet', {
             style: {
               margin: '4px'
             },
             // disabled: state.userAddress ? null : true,
-            click: getEther
+            click: getEther.bind(null, 100)
           })
         ])
       ]),
@@ -174,26 +175,26 @@ function renderApp () {
           h('div', 'address: ' + state.userAddress),
           h('div', 'balance: ' + formatBalance(state.fromBalance)),
           h('div', 'donate to faucet:'),
-          h('button.btn.btn-warning', '1 ether', {
+          h('button.btn.btn-warning', '1 aitd', {
             style: {
               margin: '4px'
             },
             // disabled: state.userAddress ? null : true,
-            click: sendTx.bind(null, 1)
+            click: getEther.bind(null, 1)
           }),
-          h('button.btn.btn-warning', '10 ether', {
+          h('button.btn.btn-warning', '10 aitd', {
             style: {
               margin: '4px'
             },
             // disabled: state.userAddress ? null : true,
-            click: sendTx.bind(null, 10)
+            click: getEther.bind(null, 10)
           }),
-          h('button.btn.btn-warning', '100 ether', {
+          h('button.btn.btn-warning', '100 aitd', {
             style: {
               margin: '4px'
             },
             // disabled: state.userAddress ? null : true,
-            click: sendTx.bind(null, 100)
+            click: getEther.bind(null, 100)
           })
         ])
       ]),
@@ -225,23 +226,23 @@ function link (url, content) {
   return h('a', { href: url, target: '_blank' }, content)
 }
 
-async function getEther () {
+async function getEther (num) {
   const account = await requestAccounts()
 
   // We already prompted to unlock in requestAccounts()
   if (!account) return
 
   var uri = `${window.location.href}v0/request`
-  var data = account
+  var data = { account, num };
 
   let res, body, err
   
   try {
     res = await fetch(uri, {
       method: 'POST',
-      body: data,
+      body: JSON.stringify(data),
       headers: {
-        'Content-Type': 'application/rawdata'
+        "Content-Type": "application/json;charset=utf-8"
       }
     })
     body = await res.text()
