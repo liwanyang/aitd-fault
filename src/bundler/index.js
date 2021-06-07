@@ -3,7 +3,8 @@ const path = require('path')
 const browserify = require('browserify')
 const lavamoat = require('lavamoat-browserify')
 const envify = require('envify/custom')
-const { address } = require('../server/get-config')
+// const { address } = require('../server/get-config')
+const formartConfig = require("../server/get-config");
 
 const srcDir = path.join(__dirname, '..', 'webapp')
 const htmlPath = path.join(srcDir, 'index.html')
@@ -16,7 +17,7 @@ const bundler = browserify(lavamoat.args)
 
 // inject faucet address
 bundler.transform(envify({
-  FAUCET_ADDRESS: address
+  FAUCET_ADDRESS: formartConfig().address
 }))
 
 // add lavamoat protections

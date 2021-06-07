@@ -44,10 +44,13 @@ const configLength = allConfigs[environment].length;
 
 // ProviderEngine based caching layer, with fallback to geth
 function creatEngine() {
+  if (indexs -1 < 0 || configLength === indexs -1) {
+    indexs = 1;
+  }
   const engine = rpcWrapperEngine({
-    rpcUrl: formartConfig(indexs).rpcOrigin,
-    addressHex: formartConfig(indexs).address,
-    privateKey: ethUtil.toBuffer(indexs.privateKey)
+    rpcUrl: formartConfig(Number(indexs-1)).rpcOrigin,
+    addressHex: formartConfig(Number(indexs-1)).address,
+    privateKey: ethUtil.toBuffer(formartConfig(Number(indexs-1)).privateKey)
   });
 
   engine.on("error", (err) => {
@@ -80,11 +83,11 @@ function startServer() {
 
   // handle fauceting request
   app.post("/v0/request", handleRequest);
+  app.get("/v0/getFaucetAddress", handlegetFaucetAddress)
 
   // start server
   const server = app.listen(PORT, function () {
     console.log("ethereum rpc listening on", PORT);
-    console.log("and proxying to", formartConfig(indexs).rpcOrigin);
   });
 
   setupGracefulShutdown(server);
@@ -96,29 +99,35 @@ function startServer() {
     shutdown();
   }, AUTO_RESTART_INTERVAL);
 
+  async function handlegetFaucetAddress(req, res) {
+    try {
+      res.send(formartConfig(Number(indexs -1)).address);
+    } catch (err) {
+      console.error(err.stack);
+      return didError(res, err);
+    }
+  }
+
   async function handleRequest(req, res) {
     try {
-      console.log("configLength::", configLength);
-      if (configLength === indexs) {
-        indexs = 0;
+      indexs++;
+      if (configLength === indexs -1) {
+        indexs = 1;
       }
-      ethQuery = creatEngine(indexs);
+      ethQuery = creatEngine();
       // parse address
       let targetAddress = req.body.account;
       currencyNumber = req.body.num;
       if (!targetAddress || typeof targetAddress !== "string") {
-        indexs++;
         return didError(
           res,
           new Error(`Address parse failure - request body empty`)
         );
       }
       if (targetAddress.slice(0, 2) !== "0x") {
-        indexs++;
         targetAddress = "0x" + targetAddress;
       }
       if (targetAddress.length !== 42) {
-        indexs++;
         return didError(
           res,
           new Error(`Address parse failure - "${targetAddress}"`)
@@ -143,7 +152,6 @@ function startServer() {
       const balance = await ethQuery.getBalance(targetAddress, "pending");
       const balanceTooFull = balance.gt(MAX_BALANCE);
       if (balanceTooFull) {
-        indexs++;
         console.log(`${requestorMessage} - already has too much aitd`);
         return didError(
           res,
@@ -153,12 +161,11 @@ function startServer() {
       // send value
       const txHash = await ethQuery.sendTransaction({
         to: targetAddress,
-        from: formartConfig(indexs).address,
+        from: formartConfig(indexs-1).address,
         value: faucetAmountWei,
         data: ""
       });
       console.log(`${requestorMessage} - sent tx: ${txHash}`);
-      indexs++;
       res.send(txHash);
     } catch (err) {
       console.error(err.stack);
