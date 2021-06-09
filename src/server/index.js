@@ -26,31 +26,33 @@ const min = 60 * 1000;
 const ether = 1e18;
 let currencyNumber = 1;
 const faucetAmountWei = currencyNumber * ether;
-const EtherBN = new BN("1000000000000000000", 10);
+const EtherBN = new BN("100000000000000000000", 10);
 const MAX_BALANCE = EtherBN.mul(new BN("4", 10));
 const AUTO_RESTART_INTERVAL = 60 * min;
 let indexs = 0;
+let type = "AITD";
 // load all configs
 const configPath = path.resolve(
   process.env.FAUCET_CONFIG_PATH || "../../config.js"
 );
 const allConfigs = require(configPath);
-const environment = process.env.FAUCET_CONFIG || "ropsten";
-const configLength = allConfigs[environment].length;
+// const environment = process.env.FAUCET_CONFIG || "AITD";
 
-//
-// create engine
-//
-
-// ProviderEngine based caching layer, with fallback to geth
-function creatEngine() {
+function updateIndexs() {
+  const configLength = allConfigs[type].length;
   if (indexs -1 < 0 || configLength === indexs -1) {
     indexs = 1;
   }
+}
+// create engine
+// ProviderEngine based caching layer, with fallback to geth
+function creatEngine() {
+  console.log("formartConfig(indexs-1, type)::", formartConfig(indexs-1, type));
+  updateIndexs();
   const engine = rpcWrapperEngine({
-    rpcUrl: formartConfig(Number(indexs-1)).rpcOrigin,
-    addressHex: formartConfig(Number(indexs-1)).address,
-    privateKey: ethUtil.toBuffer(formartConfig(Number(indexs-1)).privateKey)
+    rpcUrl: formartConfig(Number(indexs-1), type).rpcOrigin,
+    addressHex: formartConfig(Number(indexs-1), type).address,
+    privateKey: ethUtil.toBuffer(formartConfig(Number(indexs-1), type).privateKey)
   });
 
   engine.on("error", (err) => {
@@ -61,8 +63,6 @@ function creatEngine() {
 
   return new EthQuery(engine);
 }
-
-let ethQuery = creatEngine();
 
 startServer();
 
@@ -83,7 +83,8 @@ function startServer() {
 
   // handle fauceting request
   app.post("/v0/request", handleRequest);
-  app.get("/v0/getFaucetAddress", handlegetFaucetAddress)
+  app.get("/v0/getFaucetAddress", handlegetFaucetAddress);
+  app.get("/v0/getConfig", handleConfig);
 
   // start server
   const server = app.listen(PORT, function () {
@@ -94,14 +95,23 @@ function startServer() {
 
   // Lazy nonce tracking fix:
   // Force an exit (docker will trigger a restart)
-  setTimeout(() => {
-    console.log("Restarting for better nonce tracking");
-    shutdown();
-  }, AUTO_RESTART_INTERVAL);
+  // setTimeout(() => {
+  //   console.log("Restarting for better nonce tracking");
+  //   shutdown();
+  // }, AUTO_RESTART_INTERVAL);
+
+  async function handleConfig(req, res) {
+    try {
+      res.send(allConfigs);
+    } catch (err) {
+      return didError(res, err);
+    }
+  }
 
   async function handlegetFaucetAddress(req, res) {
     try {
-      res.send(formartConfig(Number(indexs -1)).address);
+      updateIndexs();
+      res.send(formartConfig(Number(indexs -1), type).address);
     } catch (err) {
       console.error(err.stack);
       return didError(res, err);
@@ -110,14 +120,18 @@ function startServer() {
 
   async function handleRequest(req, res) {
     try {
-      indexs++;
-      if (configLength === indexs -1) {
-        indexs = 1;
-      }
-      ethQuery = creatEngine();
       // parse address
       let targetAddress = req.body.account;
       currencyNumber = req.body.num;
+      const transactionType = req.body.transactionType || "AITD";
+      // 切换交易类型，重置索引值；
+      if (transactionType !== type) {
+        indexs = 0;
+      }
+      type = transactionType;
+      indexs++;
+      updateIndexs();
+      const ethQuery = creatEngine();
       if (!targetAddress || typeof targetAddress !== "string") {
         return didError(
           res,
@@ -161,7 +175,7 @@ function startServer() {
       // send value
       const txHash = await ethQuery.sendTransaction({
         to: targetAddress,
-        from: formartConfig(indexs-1).address,
+        from: formartConfig(indexs-1, type).address,
         value: faucetAmountWei,
         data: ""
       });

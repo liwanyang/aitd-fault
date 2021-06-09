@@ -14,12 +14,15 @@ var state = {
   fromBalance: null,
   errorMessage: null,
 
-  transactions: []
+  transactions: [],
+  transactionType: "AITD",
+  transactionTypeList: {}
 };
 
 window.addEventListener("load", startApp);
 
-function startApp() {
+async function startApp() {
+  await getConfig();
   // attempt to get provider from environment
   let provider;
   if (global.ethereum) {
@@ -45,16 +48,30 @@ function startApp() {
   global.provider = provider;
 
   renderApp();
-  updateStateFromNetwork();
   // setInterval(updateStateFromNetwork, 4000)
 }
 
-function updateStateFromNetwork() {
+// function updateStateFromNetwork() {
 
   // getNetwork();
   // getAccounts()
-  getBalances();
-  renderApp();
+  // getBalances();
+  // renderApp();
+// }
+
+async function getConfig() {
+  try {
+    const res = await fetch(`${window.location.href}v0/getConfig`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json;charset=utf-8"
+      }
+    });
+    const data = await res.json();
+    state.transactionTypeList = data;
+  } catch (error) {
+    //
+  }
 }
 
 function getNetwork() {
@@ -153,6 +170,16 @@ async function getBalances() {
   }
 }
 
+function getAttr(item) {
+  const obj = {
+    value: item,
+  }
+  if (state.transactionType === item) {
+    return Object.assign({},obj,{selected: "selected"});
+  }
+  return obj;
+}
+
 function renderApp() {
   // if (state.isLoading) {
   //   return render(h('span', 'web3 detected - Loading...'))
@@ -175,7 +202,7 @@ function renderApp() {
   // render faucet ui
   render([
     h("nav.navbar.navbar-default.container", [
-      h("h1.container-fluid", "MetaMask Aitd Faucet")
+      h("h1.container-fluid", "Aitd Faucet")
     ]),
 
     h("section.container", [
@@ -185,6 +212,27 @@ function renderApp() {
           // h("div", "address: " + state.faucetAddress),
           // h("div", "balance: " + formatBalance(state.faucetBalance)),
           // h("div", "user balance: " + formatBalance(state.fromBalance)),
+          h(
+            "div",
+            "Transaction currency:",
+            {
+              style: {
+                margin: '20px 0'
+              }
+            },
+            h("select", {
+              name: state.transactionType,
+              style: {
+                width: "100%",
+                height: "36px"
+              },
+              change: handleTransaction,
+            },
+            Object.keys(state.transactionTypeList).map((item) => {
+              return h("option", getAttr(item), item);
+            })
+            )
+          ),
           h(
             "div",
             "user address:",
@@ -199,12 +247,12 @@ function renderApp() {
               blur: handleBlur
             })
           ),
-          h("button.btn.btn-success", "request 100 aitd from faucet", {
+          h("button.btn.btn-success", "request", {
             style: {
               margin: "4px"
             },
             // disabled: state.userAddress ? null : true,
-            click: getEther
+            click: getEther.bind(null, 100)
           })
         ])
       ]),
@@ -263,10 +311,14 @@ function renderApp() {
   ]);
 }
 
+function handleTransaction(val) {
+  state.transactionType = val.target.value;
+}
+
 function handleBlur(val) {
   const data = val.target.value || "";
   state.userAddress = data;
-  updateStateFromNetwork();
+  renderApp();
 }
 
 function link(url, content) {
@@ -283,7 +335,11 @@ async function getEther(num) {
   };
 
   var uri = `${window.location.href}v0/request`;
-  var data = { account: state.userAddress, num };
+  var data = {
+    account: state.userAddress,
+    transactionType: state.transactionType,
+    num 
+  };
 
   let res, body, err;
 
@@ -303,19 +359,19 @@ async function getEther(num) {
   // display error
   if (err) {
     state.errorMessage = err || err.stack;
-    updateStateFromNetwork();
+    renderApp();
     return;
   }
 
   if (res.status === 420) {
     state.errorMessage = `Being ratelimited... try again later`;
-    updateStateFromNetwork();
+    renderApp();
     return;
   }
 
   if (!res.ok) {
     state.errorMessage = `Error: ${res.status} ${res.statusText} ${body}`;
-    updateStateFromNetwork();
+    renderApp();
     return;
   }
 
@@ -333,7 +389,7 @@ async function getEther(num) {
 
   // display tx hash
   console.log("faucet response:", body);
-  updateStateFromNetwork();
+  renderApp();
 }
 
 // async function sendTx(value) {
