@@ -173,6 +173,7 @@ function startServer() {
         );
       }
       // send value
+      console.log("formartConfig(indexs-1, type).address::", formartConfig(indexs-1, type).address);
       const txHash = await ethQuery.sendTransaction({
         to: targetAddress,
         from: formartConfig(indexs-1, type).address,

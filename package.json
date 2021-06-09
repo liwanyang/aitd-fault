@@ -17,6 +17,7 @@
     "ethjs-query": "^0.3.8",
     "express": "^4.14.0",
     "lavamoat": "^5.3.1",
+    "mongoose": "^5.12.13",
     "patch-package": "^6.2.2",
     "request": "^2.75.0",
     "web3-provider-engine": "^15.0.12",
