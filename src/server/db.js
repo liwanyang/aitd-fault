@@ -1,31 +1,18 @@
-const mongoose = require('mongoose');
+var mysql = require("mysql")
+var pool = mysql.createPool({
+    host:"localhost",
+    user:"root",
+    password:"123456",
+    database:"user"
+})//数据库连接配置
 
-const { Schema } = mongoose;
+function query(sql,callback){
+    pool.getConnection(function(err,connection){
+        connection.query(sql, function (err,rows) {
+            callback(err,rows)
+            connection.release()
+        })
+    })
+}//对数据库进行增删改查操作的基础
 
-const User = new Schema(
-  {
-    'number': { type: Number, index: { unique: true } },
-    'hash': String,
-    'miner': { type: String, lowercase: true },
-    'timestamp': Number,
-  }, { collection: 'User' },
-);
-
-// create indices
-User.index({ miner: 1 });
-User.index({ miner: 1, blockNumber: -1 });
-User.index({ hash: 1, number: -1 });
-
-mongoose.model('User', User);
-module.exports.Block = mongoose.model('User');
-
-mongoose.Promise = global.Promise;
-mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost/faultDB', {
-  useMongoClient: true
-  // poolSize: 5,
-  // rs_name: 'myReplicaSetName',
-  // user: 'explorer',
-  // pass: 'yourdbpasscode'
-});
-
-// mongoose.set('debug', true);
+exports.query = query

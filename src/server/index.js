@@ -8,6 +8,7 @@ process.on("uncaughtException", (err) => {
   console.error(`uncaughtException: ${err.stack || err.message || err}`);
 });
 
+require('./db');
 const path = require("path");
 const express = require("express");
 const bodyParser = require("body-parser");
